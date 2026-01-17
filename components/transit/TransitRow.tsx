@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { TransitSegment } from '@/types';
+import { WalkIcon, CarIcon, TrainIcon } from '@/components/ui/Icons';
 
 interface TransitRowProps {
   transit: TransitSegment;
@@ -10,10 +11,10 @@ interface TransitRowProps {
 
 type Mode = TransitSegment['mode'];
 
-const MODES: { mode: Mode; icon: string; label: string; speedFactor: number }[] = [
-  { mode: 'walk', icon: '🚶', label: 'Walk', speedFactor: 1 },
-  { mode: 'drive', icon: '🚗', label: 'Drive', speedFactor: 0.3 },
-  { mode: 'transit', icon: '🚇', label: 'Transit', speedFactor: 0.5 },
+const MODES: { mode: Mode; icon: React.ComponentType<{ className?: string }>; label: string; speedFactor: number }[] = [
+  { mode: 'walk', icon: WalkIcon, label: 'Walk', speedFactor: 1 },
+  { mode: 'drive', icon: CarIcon, label: 'Drive', speedFactor: 0.3 },
+  { mode: 'transit', icon: TrainIcon, label: 'Transit', speedFactor: 0.5 },
 ];
 
 export function TransitRow({ transit, onUpdate }: TransitRowProps) {
@@ -49,7 +50,7 @@ export function TransitRow({ transit, onUpdate }: TransitRowProps) {
     <div className="flex items-center gap-[8px] py-[6px] pl-[40px] mb-[6px]">
       {/* Mode selector pills */}
       <div className="flex items-center gap-[2px]">
-        {MODES.map(({ mode, icon, label, speedFactor }) => {
+        {MODES.map(({ mode, icon: Icon, label, speedFactor }) => {
           const isSelected = transit.mode === mode;
           const estimatedTime = getEstimatedTime(speedFactor);
 
@@ -61,13 +62,13 @@ export function TransitRow({ transit, onUpdate }: TransitRowProps) {
                 onUpdate({ mode, duration: newDuration });
               }}
               title={label}
-              className={`flex items-center gap-[4px] px-[10px] py-[5px] text-[11px] transition-all ${
+              className={`flex items-center gap-[5px] px-[10px] py-[5px] text-[11px] transition-all ${
                 isSelected
                   ? 'bg-[var(--text)] text-[var(--surface)] rounded-full'
                   : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
               }`}
             >
-              <span className="text-[13px]">{icon}</span>
+              <Icon className="w-[12px] h-[12px]" />
               <span className={isSelected ? 'font-medium' : ''}>
                 {isSelected && isEditingDuration ? (
                   <input
