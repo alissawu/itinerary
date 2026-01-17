@@ -111,21 +111,49 @@ export function PlaceCard({
   onAddAfter,
 }: PlaceCardProps) {
   const [isHovered, setIsHovered] = useState(false);
-  const [editingField, setEditingField] = useState<'start' | 'end' | null>(null);
+  const [editingField, setEditingField] = useState<'start' | 'end' | 'name' | 'address' | 'notes' | null>(null);
+  const [localValue, setLocalValue] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown when clicking outside
+  const startInlineEdit = (field: 'name' | 'address' | 'notes') => {
+    setEditingField(field);
+    setLocalValue(field === 'notes' ? (place.notes || '') : place[field]);
+  };
+
+  const commitInlineEdit = () => {
+    if (editingField === 'name' || editingField === 'address' || editingField === 'notes') {
+      onUpdate({ [editingField]: localValue || (editingField === 'notes' ? undefined : place[editingField]) });
+      setEditingField(null);
+    }
+  };
+
+  const cancelInlineEdit = () => {
+    setEditingField(null);
+  };
+
+  // Close dropdown/inline edit when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setEditingField(null);
+      // Handle time dropdown
+      if (editingField === 'start' || editingField === 'end') {
+        if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+          setEditingField(null);
+        }
+      }
+      // Handle inline text editing - save on click outside
+      if (editingField === 'name' || editingField === 'address' || editingField === 'notes') {
+        if (contentRef.current && !contentRef.current.contains(e.target as Node)) {
+          onUpdate({ [editingField]: localValue || (editingField === 'notes' ? undefined : place[editingField]) });
+          setEditingField(null);
+        }
       }
     };
     if (editingField) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [editingField]);
+  }, [editingField, localValue, onUpdate, place]);
 
   const {
     attributes,
@@ -241,13 +269,54 @@ export function PlaceCard({
           </div>
 
           {/* Content column */}
-          <div className="py-[14px] px-[18px]">
-            <h3 className="text-[14px] font-semibold text-[var(--text)] mb-[3px]">
-              {place.name}
-            </h3>
-            <p className="text-[11px] text-[var(--text-muted)] mb-2">
-              {place.address}
-            </p>
+          <div className="py-[14px] px-[18px]" ref={contentRef}>
+            {/* Name - click to edit */}
+            {editingField === 'name' ? (
+              <input
+                type="text"
+                value={localValue}
+                onChange={(e) => setLocalValue(e.target.value)}
+                onBlur={commitInlineEdit}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitInlineEdit();
+                  if (e.key === 'Escape') cancelInlineEdit();
+                }}
+                autoFocus
+                className="text-[14px] font-semibold text-[var(--text)] mb-[3px] w-full bg-transparent border-b border-[var(--accent)] outline-none"
+                placeholder="Place name"
+              />
+            ) : (
+              <h3
+                onClick={() => startInlineEdit('name')}
+                className="text-[14px] font-semibold text-[var(--text)] mb-[3px] cursor-pointer hover:text-[var(--accent)]"
+              >
+                {place.name}
+              </h3>
+            )}
+
+            {/* Address - click to edit */}
+            {editingField === 'address' ? (
+              <input
+                type="text"
+                value={localValue}
+                onChange={(e) => setLocalValue(e.target.value)}
+                onBlur={commitInlineEdit}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitInlineEdit();
+                  if (e.key === 'Escape') cancelInlineEdit();
+                }}
+                autoFocus
+                className="text-[11px] text-[var(--text-muted)] mb-2 w-full bg-transparent border-b border-[var(--accent)] outline-none"
+                placeholder="Address"
+              />
+            ) : (
+              <p
+                onClick={() => startInlineEdit('address')}
+                className="text-[11px] text-[var(--text-muted)] mb-2 cursor-pointer hover:text-[var(--accent)]"
+              >
+                {place.address}
+              </p>
+            )}
 
             {place.hours && (
               <div className="inline-flex items-center gap-1 text-[10px] py-[3px] px-[6px] bg-[#ecfdf5] text-[#047857] mb-2">
@@ -256,9 +325,33 @@ export function PlaceCard({
               </div>
             )}
 
-            {place.notes && (
-              <p className="text-[12px] leading-[1.55] text-[var(--text-secondary)]">
+            {/* Notes - click to edit */}
+            {editingField === 'notes' ? (
+              <textarea
+                value={localValue}
+                onChange={(e) => setLocalValue(e.target.value)}
+                onBlur={commitInlineEdit}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') cancelInlineEdit();
+                }}
+                autoFocus
+                rows={2}
+                className="text-[12px] leading-[1.55] text-[var(--text-secondary)] w-full bg-transparent border border-[var(--accent)] outline-none p-1 resize-none"
+                placeholder="Add notes..."
+              />
+            ) : place.notes ? (
+              <p
+                onClick={() => startInlineEdit('notes')}
+                className="text-[12px] leading-[1.55] text-[var(--text-secondary)] cursor-pointer hover:text-[var(--accent)]"
+              >
                 {place.notes}
+              </p>
+            ) : (
+              <p
+                onClick={() => startInlineEdit('notes')}
+                className="text-[12px] text-[var(--text-muted)] cursor-pointer hover:text-[var(--accent)] italic"
+              >
+                Add notes...
               </p>
             )}
           </div>
@@ -273,7 +366,7 @@ export function PlaceCard({
         {/* Context menu */}
         <PlaceContextMenu
           isVisible={isHovered}
-          onEdit={() => {}}
+          onEdit={() => startInlineEdit('name')}
           onDuplicate={onDuplicate}
           onMoveToDay={() => {}}
           onDelete={onDelete}
