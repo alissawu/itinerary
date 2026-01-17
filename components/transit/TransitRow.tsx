@@ -8,17 +8,17 @@ interface TransitRowProps {
   onUpdate: (updates: Partial<TransitSegment>) => void;
 }
 
-const TRANSIT_MODES: TransitSegment['mode'][] = ['walk', 'drive', 'transit', 'custom'];
+type Mode = TransitSegment['mode'];
+
+const MODES: { mode: Mode; icon: string; label: string; speedFactor: number }[] = [
+  { mode: 'walk', icon: '🚶', label: 'Walk', speedFactor: 1 },
+  { mode: 'drive', icon: '🚗', label: 'Drive', speedFactor: 0.3 },
+  { mode: 'transit', icon: '🚇', label: 'Transit', speedFactor: 0.5 },
+];
 
 export function TransitRow({ transit, onUpdate }: TransitRowProps) {
   const [isEditingDuration, setIsEditingDuration] = useState(false);
   const [localDuration, setLocalDuration] = useState(transit.duration.toString());
-
-  const handleModeClick = () => {
-    const currentIndex = TRANSIT_MODES.indexOf(transit.mode);
-    const nextIndex = (currentIndex + 1) % TRANSIT_MODES.length;
-    onUpdate({ mode: TRANSIT_MODES[nextIndex] });
-  };
 
   const handleDurationSubmit = () => {
     const numVal = parseInt(localDuration, 10);
@@ -30,51 +30,88 @@ export function TransitRow({ transit, onUpdate }: TransitRowProps) {
     setIsEditingDuration(false);
   };
 
-  const getModeLabel = (mode: TransitSegment['mode']): string => {
-    switch (mode) {
-      case 'walk': return 'WALK';
-      case 'drive': return 'DRIVE';
-      case 'transit': return 'TRANSIT';
-      case 'custom': return 'CUSTOM';
-    }
+  const formatDuration = (mins: number) => {
+    if (mins < 60) return `${mins}m`;
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  };
+
+  // Get the base walk time (stored duration is for the selected mode)
+  const selectedMode = MODES.find(m => m.mode === transit.mode);
+  const baseWalkTime = selectedMode ? transit.duration / selectedMode.speedFactor : transit.duration;
+
+  const getEstimatedTime = (speedFactor: number) => {
+    return Math.round(baseWalkTime * speedFactor);
   };
 
   return (
-    <div className="flex items-center gap-[12px] py-[4px] pl-[40px] mb-[6px]">
-      <button
-        onClick={handleModeClick}
-        className="px-[10px] py-[5px] bg-[var(--text)] text-[var(--surface)] text-[10px] font-medium tracking-[0.05em] uppercase border-none font-mono flex-shrink-0"
-      >
-        {getModeLabel(transit.mode)}
-      </button>
+    <div className="flex items-center gap-[8px] py-[6px] pl-[40px] mb-[6px]">
+      {/* Mode selector pills */}
+      <div className="flex items-center gap-[2px]">
+        {MODES.map(({ mode, icon, label, speedFactor }) => {
+          const isSelected = transit.mode === mode;
+          const estimatedTime = getEstimatedTime(speedFactor);
 
-      <span
-        onClick={() => setIsEditingDuration(true)}
-        className="text-[12px] text-[var(--text-muted)] cursor-pointer hover:text-[var(--text-secondary)] flex-shrink-0"
-      >
-        {isEditingDuration ? (
-          <input
-            type="number"
-            value={localDuration}
-            onChange={(e) => setLocalDuration(e.target.value)}
-            onBlur={handleDurationSubmit}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleDurationSubmit();
-              if (e.key === 'Escape') {
-                setLocalDuration(transit.duration.toString());
-                setIsEditingDuration(false);
-              }
-            }}
-            autoFocus
-            className="w-12 px-1 py-0.5 border border-[var(--border)] bg-[var(--surface)] text-center font-mono text-[12px]"
-          />
-        ) : (
-          <>
-            {transit.duration} min
-            {transit.routeSummary && <span className="ml-1">{transit.routeSummary}</span>}
-          </>
-        )}
-      </span>
+          return (
+            <button
+              key={mode}
+              onClick={() => {
+                const newDuration = getEstimatedTime(speedFactor);
+                onUpdate({ mode, duration: newDuration });
+              }}
+              title={label}
+              className={`flex items-center gap-[4px] px-[10px] py-[5px] text-[11px] transition-all ${
+                isSelected
+                  ? 'bg-[var(--text)] text-[var(--surface)] rounded-full'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+              }`}
+            >
+              <span className="text-[13px]">{icon}</span>
+              <span className={isSelected ? 'font-medium' : ''}>
+                {isSelected && isEditingDuration ? (
+                  <input
+                    type="number"
+                    value={localDuration}
+                    onChange={(e) => setLocalDuration(e.target.value)}
+                    onBlur={handleDurationSubmit}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleDurationSubmit();
+                      if (e.key === 'Escape') {
+                        setLocalDuration(transit.duration.toString());
+                        setIsEditingDuration(false);
+                      }
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    autoFocus
+                    className="w-[28px] bg-transparent border-b border-[var(--surface)] text-center text-[11px] text-[var(--surface)] outline-none"
+                  />
+                ) : (
+                  <span
+                    onClick={(e) => {
+                      if (isSelected) {
+                        e.stopPropagation();
+                        setLocalDuration(transit.duration.toString());
+                        setIsEditingDuration(true);
+                      }
+                    }}
+                    className={isSelected ? 'cursor-pointer hover:underline' : ''}
+                  >
+                    {formatDuration(estimatedTime)}
+                  </span>
+                )}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Route summary */}
+      {transit.routeSummary && (
+        <span className="text-[11px] text-[var(--text-muted)]">
+          via {transit.routeSummary}
+        </span>
+      )}
     </div>
   );
 }
