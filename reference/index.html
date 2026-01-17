@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Itinerary App - Complete Prototype</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #f9f8f6;
+            --surface: #fff;
+            --text: #292524;
+            --text-secondary: #57534e;
+            --text-muted: #a8a29e;
+            --border: #e7e5e4;
+            --border-dark: #d6d3d1;
+            --active-bg: #f5f5f4;
+            --warning-bg: #fef3c7;
+            --warning-border: #f59e0b;
+            --warning-text: #92400e;
+            --anchor: #3b82f6;
+            --accent: #3b82f6;
+            --accent-soft: #eff6ff;
+            --danger: #ef4444;
+            --danger-soft: #fef2f2;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            font-size: 13px;
+        }
+        
+        .shell {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            min-height: 100vh;
+        }
+        
+        .shell.map-mode {
+            grid-template-columns: 200px 320px 1fr;
+        }
+        
+        /* Sidebar */
+        .side {
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .side-top {
+            padding: 24px 18px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .trip-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+        .trip-meta { font-size: 12px; color: var(--text-muted); }
+        
+        .day-nav { flex: 1; padding: 12px 0; }
+        
+        .day-btn {
+            width: 100%; padding: 12px 18px; background: transparent;
+            border: none; text-align: left; cursor: pointer; font-family: inherit;
+        }
+        .day-btn:hover { background: var(--active-bg); }
+        .day-btn.active { background: var(--active-bg); }
+        
+        .day-btn-top { display: flex; justify-content: space-between; }
+        .day-btn-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+        .day-btn-count { font-family: 'Fira Code', monospace; font-size: 10px; color: var(--text-muted); }
+        .day-btn-date { font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
+        .day-btn.active .day-btn-date { color: var(--text); font-weight: 500; }
+        
+        .side-bottom { padding: 14px; border-top: 1px solid var(--border); }
+        
+        .mode-switcher { display: flex; border: 1px solid var(--border); }
+        .mode-btn {
+            flex: 1; padding: 9px 6px; background: transparent; border: none;
+            font-family: inherit; font-size: 11px; font-weight: 500;
+            color: var(--text-muted); cursor: pointer; border-right: 1px solid var(--border);
+        }
+        .mode-btn:last-child { border-right: none; }
+        .mode-btn:hover { background: var(--active-bg); }
+        .mode-btn.active { background: var(--text); color: var(--surface); }
+        
+        /* Main body */
+        .body { display: flex; flex-direction: column; }
+        
+        .body-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 18px 28px; background: var(--surface); border-bottom: 1px solid var(--border);
+        }
+        .body-title { font-size: 13px; color: var(--text-secondary); }
+        .body-title strong { color: var(--text); font-weight: 600; }
+        
+        .day-start { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); }
+        .day-start-input {
+            font-family: 'Fira Code', monospace; font-size: 12px; padding: 4px 8px;
+            border: 1px solid var(--border); background: var(--surface); width: 75px;
+        }
+        
+        .body-content { flex: 1; padding: 20px 28px 80px; overflow-y: auto; }
+        .items { display: flex; flex-direction: column; }
+        
+        /* Item card */
+        .item-wrapper { position: relative; margin-bottom: 6px; }
+        
+        .item {
+            background: var(--surface); border: 1px solid var(--border);
+            transition: box-shadow 0.15s, border-color 0.15s; position: relative;
+        }
+        .item:hover { border-color: var(--border-dark); box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+        .item.anchored { border-left: 3px solid var(--anchor); }
+        
+        .item-main { display: grid; grid-template-columns: 28px 95px 1fr; }
+        
+        .item-drag {
+            display: flex; align-items: center; justify-content: center;
+            background: var(--active-bg); border-right: 1px solid var(--border);
+            cursor: grab; color: var(--text-muted);
+        }
+        .item-drag:hover { background: var(--border); color: var(--text-secondary); }
+        .drag-icon { width: 12px; height: 12px; }
+        
+        .item-time {
+            padding: 14px 12px; background: var(--active-bg); border-right: 1px solid var(--border);
+            font-family: 'Fira Code', monospace; font-size: 11px;
+        }
+        .item-time-main { font-weight: 500; margin-bottom: 4px; }
+        .item-time-duration { margin-bottom: 6px; }
+        .duration-select {
+            font-family: 'Fira Code', monospace; font-size: 10px; padding: 2px 4px;
+            border: 1px solid var(--border); background: var(--surface); cursor: pointer;
+        }
+        
+        .anchor-toggle { display: flex; align-items: center; gap: 4px; font-size: 9px; color: var(--text-muted); cursor: pointer; }
+        .anchor-toggle input { display: none; }
+        .anchor-toggle.is-anchored { color: var(--anchor); font-weight: 500; }
+        .anchor-icon { width: 10px; height: 10px; }
+        
+        .item-content { padding: 14px 18px; }
+        .item-name { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+        .item-address { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; }
+        .item-hours {
+            display: inline-flex; align-items: center; gap: 4px; font-size: 10px;
+            padding: 3px 6px; background: #ecfdf5; color: #047857; margin-bottom: 8px;
+        }
+        .item-hours-icon { width: 10px; height: 10px; }
+        .item-note { font-size: 12px; line-height: 1.55; color: var(--text-secondary); }
+        
+        /* Media rows */
+        .item-media { border-top: 1px solid var(--border); }
+        .media-row {
+            display: flex; align-items: center; padding: 10px 18px; gap: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+        .media-row:last-child { border-bottom: none; }
+        .media-row-label { font-size: 10px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); width: 50px; flex-shrink: 0; }
+        
+        .media-nav {
+            width: 24px; height: 24px; background: var(--surface); border: 1px solid var(--border-dark);
+            display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;
+        }
+        .media-nav:hover { background: var(--text); color: white; border-color: var(--text); }
+        .media-nav svg { width: 10px; height: 10px; }
+        
+        .media-track { display: flex; gap: 6px; flex: 1; overflow: hidden; }
+        .photo-thumb { width: 56px; height: 56px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+        
+        .embed-thumb {
+            width: 88px; height: 56px; background: #000; border-radius: 4px;
+            flex-shrink: 0; position: relative; cursor: pointer; overflow: hidden;
+        }
+        .embed-thumb img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.2s; }
+        .embed-thumb:hover img { transform: scale(1.05); }
+        .embed-source {
+            position: absolute; bottom: 3px; left: 3px; padding: 2px 5px;
+            background: rgba(0,0,0,0.75); border-radius: 3px; font-size: 8px; font-weight: 600; color: white;
+        }
+        
+        .embed-thumb.is-video .embed-play {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 24px; height: 24px; background: rgba(255,255,255,0.95); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .embed-thumb.is-video:hover .embed-play { transform: translate(-50%, -50%) scale(1.1); }
+        .embed-play svg { width: 10px; height: 10px; margin-left: 2px; color: var(--text); }
+        
+        .embed-thumb.is-slideshow .embed-carousel-nav {
+            position: absolute; top: 50%; transform: translateY(-50%);
+            width: 16px; height: 16px; background: rgba(255,255,255,0.9); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; opacity: 0; z-index: 2;
+        }
+        .embed-thumb.is-slideshow:hover .embed-carousel-nav { opacity: 1; }
+        .embed-carousel-nav.prev { left: 3px; }
+        .embed-carousel-nav.next { right: 3px; }
+        .embed-carousel-nav svg { width: 8px; height: 8px; color: var(--text); }
+        
+        .embed-dots { position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%); display: flex; gap: 3px; z-index: 2; }
+        .embed-dot { width: 4px; height: 4px; background: rgba(255,255,255,0.5); border-radius: 50%; }
+        .embed-dot.active { background: white; }
+        
+        .embed-slideshow-icon {
+            position: absolute; top: 3px; right: 3px; width: 14px; height: 14px;
+            background: rgba(0,0,0,0.6); border-radius: 2px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .embed-slideshow-icon svg { width: 8px; height: 8px; color: white; }
+        
+        .media-add {
+            width: 56px; height: 56px; border: 1px dashed var(--border-dark); border-radius: 4px;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--text-muted); cursor: pointer; flex-shrink: 0;
+        }
+        .media-add:hover { border-color: var(--accent); color: var(--accent); background: rgba(59,130,246,0.05); }
+        .media-add svg { width: 14px; height: 14px; }
+        .media-add.wide { width: 88px; }
+        
+        /* Context menu */
+        .item-menu-zone { position: absolute; top: 8px; right: 8px; z-index: 10; }
+        .item-menu-btn {
+            width: 28px; height: 28px; background: var(--surface); border: 1px solid var(--border);
+            border-radius: 6px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; opacity: 0; transform: scale(0.9); transition: all 0.15s;
+        }
+        .item:hover .item-menu-btn { opacity: 1; transform: scale(1); }
+        .item-menu-btn:hover { background: var(--active-bg); border-color: var(--border-dark); }
+        .item-menu-btn svg { width: 14px; height: 14px; color: var(--text-muted); }
+        
+        .item-menu {
+            position: absolute; top: 100%; right: 0; margin-top: 4px;
+            background: var(--surface); border: 1px solid var(--border-dark); border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12); min-width: 160px;
+            opacity: 0; visibility: hidden; transform: translateY(-4px); transition: all 0.15s; z-index: 100;
+        }
+        .item-menu-zone:hover .item-menu { opacity: 1; visibility: visible; transform: translateY(0); }
+        .item-menu-zone:hover .item-menu-btn { opacity: 1; transform: scale(1); }
+        
+        .menu-item {
+            display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+            font-size: 12px; color: var(--text); cursor: pointer; border: none;
+            background: none; width: 100%; text-align: left; font-family: inherit;
+        }
+        .menu-item:first-child { border-radius: 7px 7px 0 0; }
+        .menu-item:last-child { border-radius: 0 0 7px 7px; }
+        .menu-item:hover { background: var(--active-bg); }
+        .menu-item svg { width: 14px; height: 14px; color: var(--text-muted); }
+        .menu-divider { height: 1px; background: var(--border); margin: 4px 0; }
+        .menu-item.danger { color: var(--danger); }
+        .menu-item.danger svg { color: var(--danger); }
+        .menu-item.danger:hover { background: var(--danger-soft); }
+        
+        /* Add button */
+        .item-add-zone { position: absolute; bottom: -3px; left: 50%; transform: translateX(-50%); z-index: 10; }
+        .item-add-btn {
+            width: 22px; height: 22px; background: var(--surface); border: 1px solid var(--border-dark);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; opacity: 0; transform: scale(0.8); transition: all 0.15s;
+        }
+        .item-wrapper:hover .item-add-btn { opacity: 1; transform: scale(1); }
+        .item-add-btn:hover { background: var(--accent); border-color: var(--accent); transform: scale(1.1); }
+        .item-add-btn svg { width: 12px; height: 12px; color: var(--text-muted); }
+        .item-add-btn:hover svg { color: white; }
+        
+        .add-menu {
+            position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 6px;
+            background: var(--surface); border: 1px solid var(--border-dark); border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12); min-width: 180px;
+            opacity: 0; visibility: hidden; transition: all 0.15s; z-index: 100;
+        }
+        .item-add-zone:hover .add-menu { opacity: 1; visibility: visible; }
+        
+        .add-menu-item {
+            display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+            font-size: 12px; color: var(--text); cursor: pointer; border: none;
+            background: none; width: 100%; text-align: left; font-family: inherit;
+        }
+        .add-menu-item:first-child { border-radius: 7px 7px 0 0; }
+        .add-menu-item:last-child { border-radius: 0 0 7px 7px; }
+        .add-menu-item:hover { background: var(--active-bg); }
+        .add-menu-item svg { width: 14px; height: 14px; color: var(--text-muted); }
+        .add-menu-divider { height: 1px; background: var(--border); margin: 4px 0; }
+        
+        /* Transit */
+        .transit-row { display: flex; align-items: center; gap: 12px; padding: 4px 0 4px 40px; margin-bottom: 6px; }
+        .transit-badge {
+            padding: 5px 10px; background: var(--text); color: var(--surface); border: none;
+            font-family: 'Fira Code', monospace; font-size: 10px; font-weight: 500;
+            text-transform: uppercase; cursor: pointer;
+        }
+        .transit-info { font-size: 12px; color: var(--text-muted); }
+        
+        /* Gap warning */
+        .gap-warning {
+            display: flex; align-items: center; gap: 8px; padding: 10px 14px; margin: 0 0 6px 40px;
+            background: var(--warning-bg); border-left: 3px solid var(--warning-border);
+            font-size: 11px; color: var(--warning-text);
+        }
+        .gap-warning-icon { width: 14px; height: 14px; flex-shrink: 0; }
+        .gap-add-btn {
+            width: 20px; height: 20px; background: var(--warning-border); border: none; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+            opacity: 0; transform: scale(0.8); transition: all 0.15s;
+        }
+        .gap-warning:hover .gap-add-btn { opacity: 1; transform: scale(1); }
+        .gap-add-btn:hover { background: #d97706; transform: scale(1.1); }
+        .gap-add-btn svg { width: 12px; height: 12px; color: white; }
+        
+        /* Map view */
+        .list-panel {
+            background: var(--surface); border-right: 1px solid var(--border);
+            display: none; flex-direction: column;
+        }
+        .shell.map-mode .list-panel { display: flex; }
+        .shell.map-mode .body { display: none; }
+        
+        .list-header { padding: 16px 18px; border-bottom: 1px solid var(--border); }
+        .list-title { font-size: 13px; color: var(--text-secondary); }
+        .list-title strong { color: var(--text); font-weight: 600; }
+        .list-scroll { flex: 1; overflow-y: auto; padding: 12px 0; }
+        
+        .compact-item {
+            display: flex; gap: 12px; padding: 12px 18px; cursor: pointer;
+            border-left: 3px solid transparent; transition: background 0.1s;
+        }
+        .compact-item:hover { background: var(--active-bg); }
+        .compact-item.active { background: var(--accent-soft); border-left-color: var(--accent); }
+        
+        .compact-item-number {
+            width: 24px; height: 24px; background: var(--text); color: var(--surface);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 11px; font-weight: 600; flex-shrink: 0;
+        }
+        .compact-item.active .compact-item-number { background: var(--accent); }
+        
+        .compact-item-content { flex: 1; min-width: 0; }
+        .compact-item-name { font-size: 13px; font-weight: 600; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .compact-item-time { font-family: 'Fira Code', monospace; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+        .compact-item-address { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .compact-item-img { width: 48px; height: 48px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+        
+        .compact-transit { display: flex; align-items: center; gap: 8px; padding: 6px 18px 6px 30px; font-size: 11px; color: var(--text-muted); }
+        .transit-line-segment { width: 2px; height: 20px; background: var(--border-dark); margin-right: 8px; }
+        
+        .map-area { position: relative; background: #ebe7df; overflow: hidden; display: none; }
+        .shell.map-mode .map-area { display: block; }
+        
+        .map-bg {
+            position: absolute; inset: 0;
+            background: repeating-linear-gradient(90deg, transparent, transparent 100px, #d8d4cc 100px, #d8d4cc 102px),
+                        repeating-linear-gradient(0deg, transparent, transparent 80px, #d8d4cc 80px, #d8d4cc 82px), #ebe7df;
+        }
+        
+        .route-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+        .route-path { fill: none; stroke: var(--accent); stroke-width: 3; stroke-dasharray: 8 4; stroke-linecap: round; opacity: 0.5; }
+        
+        .map-pin { position: absolute; transform: translate(-50%, -100%); cursor: pointer; z-index: 1; transition: transform 0.2s; }
+        .map-pin:hover { transform: translate(-50%, -100%) scale(1.1); z-index: 10; }
+        .map-pin.active { transform: translate(-50%, -100%) scale(1.2); z-index: 20; }
+        
+        .pin-body {
+            width: 32px; height: 32px; background: var(--text); border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg); display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .map-pin.active .pin-body { background: var(--accent); box-shadow: 0 4px 16px rgba(59,130,246,0.4); }
+        .pin-number { transform: rotate(45deg); color: white; font-size: 12px; font-weight: 600; }
+        
+        .pin-label {
+            position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 8px;
+            padding: 6px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+            font-size: 11px; font-weight: 500; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            opacity: 0; transition: opacity 0.15s;
+        }
+        .map-pin:hover .pin-label, .map-pin.active .pin-label { opacity: 1; }
+        .map-pin.active .pin-label { background: var(--accent); color: white; border-color: var(--accent); }
+        
+        .map-controls { position: absolute; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 4px; }
+        .map-control-btn {
+            width: 36px; height: 36px; background: var(--surface); border: 1px solid var(--border);
+            border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer;
+        }
+        .map-control-btn:hover { background: var(--active-bg); }
+        .map-control-btn svg { width: 18px; height: 18px; color: var(--text-secondary); }
+        
+        .current-card {
+            position: absolute; top: 16px; left: 16px; display: flex; align-items: center; gap: 10px;
+            padding: 12px 16px; background: var(--surface); border: 1px solid var(--border);
+            border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .current-dot { width: 10px; height: 10px; background: var(--accent); border-radius: 50%; animation: pulse 2s ease infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.3); } }
+        .current-text { font-size: 12px; }
+        .current-text strong { font-weight: 600; }
+        
+        .demo-menu-open .item-menu-btn { opacity: 1; transform: scale(1); background: var(--active-bg); }
+        .demo-menu-open .item-menu { opacity: 1; visibility: visible; transform: translateY(0); }
+    </style>
+</head>
+<body>
+    <div class="shell" id="shell">
+        <!-- Sidebar -->
+        <aside class="side">
+            <div class="side-top">
+                <h1 class="trip-title">A's NYC Favorites</h1>
+                <p class="trip-meta">Jan 18 – 20, 2026</p>
+            </div>
+            <nav class="day-nav">
+                <button class="day-btn active">
+                    <div class="day-btn-top"><span class="day-btn-label">Day 1</span><span class="day-btn-count">4</span></div>
+                    <div class="day-btn-date">Saturday, Jan 18</div>
+                </button>
+                <button class="day-btn">
+                    <div class="day-btn-top"><span class="day-btn-label">Day 2</span><span class="day-btn-count">5</span></div>
+                    <div class="day-btn-date">Sunday, Jan 19</div>
+                </button>
+                <button class="day-btn">
+                    <div class="day-btn-top"><span class="day-btn-label">Day 3</span><span class="day-btn-count">3</span></div>
+                    <div class="day-btn-date">Monday, Jan 20</div>
+                </button>
+            </nav>
+            <div class="side-bottom">
+                <div class="mode-switcher">
+                    <button class="mode-btn active" onclick="setMode('detail')">Detail</button>
+                    <button class="mode-btn" onclick="setMode('compact')">Compact</button>
+                    <button class="mode-btn" onclick="setMode('map')">Map</button>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- Main body -->
+        <main class="body">
+            <header class="body-header">
+                <div class="body-title"><strong>Day 1</strong> · Saturday, January 18</div>
+                <div class="day-start">
+                    <span>Day starts at</span>
+                    <input type="text" class="day-start-input" value="10:00 AM">
+                </div>
+            </header>
+            
+            <div class="body-content">
+                <div class="items">
+                    <!-- Item 1: Florea -->
+                    <div class="item-wrapper">
+                        <article class="item">
+                            <div class="item-main">
+                                <div class="item-drag">
+                                    <svg class="drag-icon" viewBox="0 0 12 12" fill="currentColor"><circle cx="4" cy="2" r="1"/><circle cx="8" cy="2" r="1"/><circle cx="4" cy="6" r="1"/><circle cx="8" cy="6" r="1"/><circle cx="4" cy="10" r="1"/><circle cx="8" cy="10" r="1"/></svg>
+                                </div>
+                                <div class="item-time">
+                                    <div class="item-time-main">10:00–11:30</div>
+                                    <div class="item-time-duration"><select class="duration-select"><option>30m</option><option>1h</option><option selected>1.5h</option><option>2h</option></select></div>
+                                    <label class="anchor-toggle"><input type="checkbox"><svg class="anchor-icon" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="3" r="2"/><line x1="6" y1="5" x2="6" y2="11"/><path d="M3 8 L6 11 L9 8"/></svg>Anchor</label>
+                                </div>
+                                <div class="item-content">
+                                    <h3 class="item-name">Florea</h3>
+                                    <p class="item-address">41 Spring St, New York, NY 10012</p>
+                                    <div class="item-hours"><svg class="item-hours-icon" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="5"/><polyline points="6,3 6,6 8,7"/></svg>Opens 10am · Closes 6pm ✓</div>
+                                    <p class="item-note">Get the matcha croissant. The space is small so you might want to take your order to go and walk around SoHo.</p>
+                                </div>
+                            </div>
+                            <div class="item-media">
+                                <div class="media-row">
+                                    <div class="media-row-label">Photos</div>
+                                    <button class="media-nav"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="7,2 3,5 7,8"/></svg></button>
+                                    <div class="media-track">
+                                        <img class="photo-thumb" src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=112&h=112&fit=crop" alt="">
+                                        <img class="photo-thumb" src="https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=112&h=112&fit=crop" alt="">
+                                        <img class="photo-thumb" src="https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=112&h=112&fit=crop" alt="">
+                                        <div class="media-add"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg></div>
+                                    </div>
+                                    <button class="media-nav"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="3,2 7,5 3,8"/></svg></button>
+                                </div>
+                                <div class="media-row">
+                                    <div class="media-row-label">Embeds</div>
+                                    <button class="media-nav"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="7,2 3,5 7,8"/></svg></button>
+                                    <div class="media-track">
+                                        <div class="embed-thumb is-video">
+                                            <img src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=176&h=112&fit=crop" alt="">
+                                            <div class="embed-play"><svg viewBox="0 0 10 10" fill="currentColor"><polygon points="2,1 9,5 2,9"/></svg></div>
+                                            <span class="embed-source">TikTok</span>
+                                        </div>
+                                        <div class="embed-thumb is-slideshow">
+                                            <img src="https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=176&h=112&fit=crop" alt="">
+                                            <div class="embed-slideshow-icon"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="2" width="7" height="8" rx="1"/><rect x="4" y="2" width="7" height="8" rx="1"/></svg></div>
+                                            <button class="embed-carousel-nav prev"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,2 3,5 6,8"/></svg></button>
+                                            <button class="embed-carousel-nav next"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="4,2 7,5 4,8"/></svg></button>
+                                            <div class="embed-dots"><div class="embed-dot active"></div><div class="embed-dot"></div><div class="embed-dot"></div></div>
+                                            <span class="embed-source">Instagram</span>
+                                        </div>
+                                        <div class="media-add wide"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg></div>
+                                    </div>
+                                    <button class="media-nav"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="3,2 7,5 3,8"/></svg></button>
+                                </div>
+                            </div>
+                            <div class="item-menu-zone">
+                                <button class="item-menu-btn"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="3" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13" r="1.5"/></svg></button>
+                                <div class="item-menu">
+                                    <button class="menu-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 2.5l2.5 2.5M3 13l-.5 2 2-.5L12.5 6.5 10 4 3 13z"/></svg>Edit</button>
+                                    <button class="menu-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="8" height="8" rx="1"/><path d="M5 11H4a1 1 0 01-1-1V4a1 1 0 011-1h6a1 1 0 011 1v1"/></svg>Duplicate</button>
+                                    <button class="menu-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6l4 4 4-4"/></svg>Move to day...</button>
+                                    <div class="menu-divider"></div>
+                                    <button class="menu-item danger"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 5h10M6 5V3.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V5M12 5v8.5a1 1 0 01-1 1H5a1 1 0 01-1-1V5"/></svg>Delete</button>
+                                </div>
+                            </div>
+                        </article>
+                        <div class="item-add-zone">
+                            <button class="item-add-btn"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><line x1="6" y1="2" x2="6" y2="10"/><line x1="2" y1="6" x2="10" y2="6"/></svg></button>
+                            <div class="add-menu">
+                                <button class="add-menu-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><line x1="8" y1="5" x2="8" y2="11"/><line x1="5" y1="8" x2="11" y2="8"/></svg>Add custom place</button>
+                                <button class="add-menu-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M6 8 L7.5 9.5 L10 6.5"/></svg>Browse places</button>
+                                <div class="add-menu-divider"></div>
+                                <button class="add-menu-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="10" height="10" rx="1"/></svg>Import from Google Maps</button>
+                                <button class="add-menu-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4 L12 4 L12 12 L4 12 Z"/></svg>Paste link</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="transit-row">
+                        <button class="transit-badge">Walk</button>
+                        <span class="transit-info">12 min via Lafayette St</span>
+                    </div>
+                    
+                    <!-- Item 2: Coming Soon (demo menu open) -->
+                    <div class="item-wrapper demo-menu-open">
+                        <article class="item">
+                            <div class="item-main">
+                                <div class="item-drag"><svg class="drag-icon" viewBox="0 0 12 12" fill="currentColor"><circle cx="4" cy="2" r="1"/><circle cx="8" cy="2" r="1"/><circle cx="4" cy="6" r="1"/><circle cx="8" cy="6" r="1"/><circle cx="4" cy="10" r="1"/><circle cx="8" cy="10" r="1"/></svg></div>
+                                <div class="item-time">
+                                    <div class="item-time-main">11:42–13:42</div>
+                                    <div class="item-time-duration"><select class="duration-select"><option>30m</option><option>1h</option><option>1.5h</option><option selected>2h</option></select></div>
+                                    <label class="anchor-toggle"><input type="checkbox"><svg class="anchor-icon" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="3" r="2"/><line x1="6" y1="5" x2="6" y2="11"/><path d="M3 8 L6 11 L9 8"/></svg>Anchor</label>
+                                </div>
+                                <div class="item-content">
+                                    <h3 class="item-name">Coming Soon</h3>
+                                    <p class="item-address">53 Howard St, New York, NY 10013</p>
+                                    <div class="item-hours"><svg class="item-hours-icon" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="5"/><polyline points="6,3 6,6 8,7"/></svg>Opens 11am · Closes 7pm ✓</div>
+                                    <p class="item-note">Best vintage in SoHo. Pricey but quality pieces. Check for new arrivals on Fridays.</p>
+                                </div>
+                            </div>
+                            <div class="item-media">
+                                <div class="media-row">
+                                    <div class="media-row-label">Photos</div>
+                                    <button class="media-nav"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="7,2 3,5 7,8"/></svg></button>
+                                    <div class="media-track">
+                                        <img class="photo-thumb" src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=112&h=112&fit=crop" alt="">
+                                        <img class="photo-thumb" src="https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=112&h=112&fit=crop" alt="">
+                                        <div class="media-add"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg></div>
+                                    </div>
+                                    <button class="media-nav"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="3,2 7,5 3,8"/></svg></button>
+                                </div>
+                                <div class="media-row">
+                                    <div class="media-row-label">Embeds</div>
+                                    <button class="media-nav"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="7,2 3,5 7,8"/></svg></button>
+                                    <div class="media-track">
+                                        <div class="embed-thumb is-slideshow">
+                                            <img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=176&h=112&fit=crop" alt="">
+                                            <div class="embed-slideshow-icon"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="2" width="7" height="8" rx="1"/><rect x="4" y="2" width="7" height="8" rx="1"/></svg></div>
+                                            <button class="embed-carousel-nav prev"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,2 3,5 6,8"/></svg></button>
+                                            <button class="embed-carousel-nav next"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="4,2 7,5 4,8"/></svg></button>
+                                            <div class="embed-dots"><div class="embed-dot active"></div><div class="embed-dot"></div><div class="embed-dot"></div><div class="embed-dot"></div><div class="embed-dot"></div></div>
+                                            <span class="embed-source">Instagram</span>
+                                        </div>
+                                        <div class="embed-thumb is-video">
+                                            <img src="https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=176&h=112&fit=crop" alt="">
+                                            <div class="embed-play"><svg viewBox="0 0 10 10" fill="currentColor"><polygon points="2,1 9,5 2,9"/></svg></div>
+                                            <span class="embed-source">Reel</span>
+                                        </div>
+                                        <div class="media-add wide"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg></div>
+                                    </div>
+                                    <button class="media-nav"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="3,2 7,5 3,8"/></svg></button>
+                                </div>
+                            </div>
+                            <div class="item-menu-zone">
+                                <button class="item-menu-btn"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="3" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13" r="1.5"/></svg></button>
+                                <div class="item-menu">
+                                    <button class="menu-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 2.5l2.5 2.5M3 13l-.5 2 2-.5L12.5 6.5 10 4 3 13z"/></svg>Edit</button>
+                                    <button class="menu-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="8" height="8" rx="1"/><path d="M5 11H4a1 1 0 01-1-1V4a1 1 0 011-1h6a1 1 0 011 1v1"/></svg>Duplicate</button>
+                                    <button class="menu-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6l4 4 4-4"/></svg>Move to day...</button>
+                                    <div class="menu-divider"></div>
+                                    <button class="menu-item danger"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 5h10M6 5V3.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V5M12 5v8.5a1 1 0 01-1 1H5a1 1 0 01-1-1V5"/></svg>Delete</button>
+                                </div>
+                            </div>
+                        </article>
+                        <div class="item-add-zone">
+                            <button class="item-add-btn"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><line x1="6" y1="2" x2="6" y2="10"/><line x1="2" y1="6" x2="10" y2="6"/></svg></button>
+                        </div>
+                    </div>
+                    
+                    <div class="transit-row">
+                        <button class="transit-badge">Walk</button>
+                        <span class="transit-info">8 min via Broadway</span>
+                    </div>
+                    
+                    <!-- Item 3: McNally Jackson -->
+                    <div class="item-wrapper">
+                        <article class="item">
+                            <div class="item-main">
+                                <div class="item-drag"><svg class="drag-icon" viewBox="0 0 12 12" fill="currentColor"><circle cx="4" cy="2" r="1"/><circle cx="8" cy="2" r="1"/><circle cx="4" cy="6" r="1"/><circle cx="8" cy="6" r="1"/><circle cx="4" cy="10" r="1"/><circle cx="8" cy="10" r="1"/></svg></div>
+                                <div class="item-time">
+                                    <div class="item-time-main">13:50–14:35</div>
+                                    <div class="item-time-duration"><select class="duration-select"><option>30m</option><option selected>45m</option><option>1h</option><option>1.5h</option></select></div>
+                                    <label class="anchor-toggle"><input type="checkbox"><svg class="anchor-icon" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="3" r="2"/><line x1="6" y1="5" x2="6" y2="11"/><path d="M3 8 L6 11 L9 8"/></svg>Anchor</label>
+                                </div>
+                                <div class="item-content">
+                                    <h3 class="item-name">McNally Jackson</h3>
+                                    <p class="item-address">52 Prince St, New York, NY 10012</p>
+                                    <div class="item-hours"><svg class="item-hours-icon" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="5"/><polyline points="6,3 6,6 8,7"/></svg>Opens 10am · Closes 9pm ✓</div>
+                                    <p class="item-note">Independent bookstore. Check the design section upstairs. They also have a nice stationery selection.</p>
+                                </div>
+                            </div>
+                            <div class="item-media">
+                                <div class="media-row">
+                                    <div class="media-row-label">Photos</div>
+                                    <button class="media-nav"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="7,2 3,5 7,8"/></svg></button>
+                                    <div class="media-track">
+                                        <img class="photo-thumb" src="https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=112&h=112&fit=crop" alt="">
+                                        <img class="photo-thumb" src="https://images.unsplash.com/photo-1521587760476-6c12a4b040da?w=112&h=112&fit=crop" alt="">
+                                        <div class="media-add"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg></div>
+                                    </div>
+                                    <button class="media-nav"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="3,2 7,5 3,8"/></svg></button>
+                                </div>
+                                <div class="media-row">
+                                    <div class="media-row-label">Embeds</div>
+                                    <button class="media-nav"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="7,2 3,5 7,8"/></svg></button>
+                                    <div class="media-track">
+                                        <div class="embed-thumb is-video">
+                                            <img src="https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=176&h=112&fit=crop" alt="">
+                                            <div class="embed-play"><svg viewBox="0 0 10 10" fill="currentColor"><polygon points="2,1 9,5 2,9"/></svg></div>
+                                            <span class="embed-source">YouTube</span>
+                                        </div>
+                                        <div class="media-add wide"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg></div>
+                                    </div>
+                                    <button class="media-nav"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="3,2 7,5 3,8"/></svg></button>
+                                </div>
+                            </div>
+                            <div class="item-menu-zone">
+                                <button class="item-menu-btn"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="3" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13" r="1.5"/></svg></button>
+                                <div class="item-menu">
+                                    <button class="menu-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 2.5l2.5 2.5M3 13l-.5 2 2-.5L12.5 6.5 10 4 3 13z"/></svg>Edit</button>
+                                    <button class="menu-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="8" height="8" rx="1"/><path d="M5 11H4a1 1 0 01-1-1V4a1 1 0 011-1h6a1 1 0 011 1v1"/></svg>Duplicate</button>
+                                    <button class="menu-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6l4 4 4-4"/></svg>Move to day...</button>
+                                    <div class="menu-divider"></div>
+                                    <button class="menu-item danger"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 5h10M6 5V3.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V5M12 5v8.5a1 1 0 01-1 1H5a1 1 0 01-1-1V5"/></svg>Delete</button>
+                                </div>
+                            </div>
+                        </article>
+                        <div class="item-add-zone">
+                            <button class="item-add-btn"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><line x1="6" y1="2" x2="6" y2="10"/><line x1="2" y1="6" x2="10" y2="6"/></svg></button>
+                        </div>
+                    </div>
+                    
+                    <!-- Gap warning -->
+                    <div class="gap-warning">
+                        <svg class="gap-warning-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 3a1 1 0 011 1v4a1 1 0 01-2 0V5a1 1 0 011-1zm0 8a1 1 0 100-2 1 1 0 000 2z"/></svg>
+                        <span class="gap-warning-text"><strong>4h 55m gap</strong> before your dinner reservation</span>
+                        <button class="gap-add-btn"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><line x1="6" y1="2" x2="6" y2="10"/><line x1="2" y1="6" x2="10" y2="6"/></svg></button>
+                    </div>
+                    
+                    <!-- Item 4: Carbone (anchored) -->
+                    <div class="item-wrapper">
+                        <article class="item anchored">
+                            <div class="item-main">
+                                <div class="item-drag"><svg class="drag-icon" viewBox="0 0 12 12" fill="currentColor"><circle cx="4" cy="2" r="1"/><circle cx="8" cy="2" r="1"/><circle cx="4" cy="6" r="1"/><circle cx="8" cy="6" r="1"/><circle cx="4" cy="10" r="1"/><circle cx="8" cy="10" r="1"/></svg></div>
+                                <div class="item-time">
+                                    <div class="item-time-main">19:30–21:30</div>
+                                    <div class="item-time-duration"><select class="duration-select"><option>1h</option><option>1.5h</option><option selected>2h</option><option>2.5h</option></select></div>
+                                    <label class="anchor-toggle is-anchored"><input type="checkbox" checked><svg class="anchor-icon" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="3" r="2"/><line x1="6" y1="5" x2="6" y2="11"/><path d="M3 8 L6 11 L9 8"/></svg>7:30 PM</label>
+                                </div>
+                                <div class="item-content">
+                                    <h3 class="item-name">Carbone</h3>
+                                    <p class="item-address">181 Thompson St, New York, NY 10012</p>
+                                    <div class="item-hours"><svg class="item-hours-icon" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="5"/><polyline points="6,3 6,6 8,7"/></svg>Opens 5pm · Closes 11pm ✓</div>
+                                    <p class="item-note">Reservation confirmed. Ask for the spicy rigatoni. Dress code: smart casual.</p>
+                                </div>
+                            </div>
+                            <div class="item-media">
+                                <div class="media-row">
+                                    <div class="media-row-label">Photos</div>
+                                    <button class="media-nav"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="7,2 3,5 7,8"/></svg></button>
+                                    <div class="media-track">
+                                        <img class="photo-thumb" src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=112&h=112&fit=crop" alt="">
+                                        <img class="photo-thumb" src="https://images.unsplash.com/photo-1559339352-11d035aa65de?w=112&h=112&fit=crop" alt="">
+                                        <img class="photo-thumb" src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=112&h=112&fit=crop" alt="">
+                                        <div class="media-add"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg></div>
+                                    </div>
+                                    <button class="media-nav"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="3,2 7,5 3,8"/></svg></button>
+                                </div>
+                                <div class="media-row">
+                                    <div class="media-row-label">Embeds</div>
+                                    <button class="media-nav"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="7,2 3,5 7,8"/></svg></button>
+                                    <div class="media-track">
+                                        <div class="embed-thumb is-video">
+                                            <img src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=176&h=112&fit=crop" alt="">
+                                            <div class="embed-play"><svg viewBox="0 0 10 10" fill="currentColor"><polygon points="2,1 9,5 2,9"/></svg></div>
+                                            <span class="embed-source">TikTok</span>
+                                        </div>
+                                        <div class="embed-thumb is-slideshow">
+                                            <img src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=176&h=112&fit=crop" alt="">
+                                            <div class="embed-slideshow-icon"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="2" width="7" height="8" rx="1"/><rect x="4" y="2" width="7" height="8" rx="1"/></svg></div>
+                                            <button class="embed-carousel-nav prev"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6,2 3,5 6,8"/></svg></button>
+                                            <button class="embed-carousel-nav next"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="4,2 7,5 4,8"/></svg></button>
+                                            <div class="embed-dots"><div class="embed-dot"></div><div class="embed-dot active"></div><div class="embed-dot"></div></div>
+                                            <span class="embed-source">Instagram</span>
+                                        </div>
+                                        <div class="media-add wide"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg></div>
+                                    </div>
+                                    <button class="media-nav"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="3,2 7,5 3,8"/></svg></button>
+                                </div>
+                            </div>
+                            <div class="item-menu-zone">
+                                <button class="item-menu-btn"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="3" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13" r="1.5"/></svg></button>
+                                <div class="item-menu">
+                                    <button class="menu-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 2.5l2.5 2.5M3 13l-.5 2 2-.5L12.5 6.5 10 4 3 13z"/></svg>Edit</button>
+                                    <button class="menu-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="8" height="8" rx="1"/><path d="M5 11H4a1 1 0 01-1-1V4a1 1 0 011-1h6a1 1 0 011 1v1"/></svg>Duplicate</button>
+                                    <button class="menu-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6l4 4 4-4"/></svg>Move to day...</button>
+                                    <div class="menu-divider"></div>
+                                    <button class="menu-item danger"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 5h10M6 5V3.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V5M12 5v8.5a1 1 0 01-1 1H5a1 1 0 01-1-1V5"/></svg>Delete</button>
+                                </div>
+                            </div>
+                        </article>
+                        <div class="item-add-zone">
+                            <button class="item-add-btn"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><line x1="6" y1="2" x2="6" y2="10"/><line x1="2" y1="6" x2="10" y2="6"/></svg></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <!-- Map view list panel -->
+        <div class="list-panel">
+            <div class="list-header"><div class="list-title"><strong>Day 1</strong> · Saturday</div></div>
+            <div class="list-scroll">
+                <div class="compact-item">
+                    <div class="compact-item-number">1</div>
+                    <div class="compact-item-content">
+                        <div class="compact-item-name">Florea</div>
+                        <div class="compact-item-time">10:00–11:30</div>
+                        <div class="compact-item-address">41 Spring St</div>
+                    </div>
+                    <img class="compact-item-img" src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=96&h=96&fit=crop" alt="">
+                </div>
+                <div class="compact-transit"><div class="transit-line-segment"></div>Walk 12 min</div>
+                <div class="compact-item active">
+                    <div class="compact-item-number">2</div>
+                    <div class="compact-item-content">
+                        <div class="compact-item-name">Coming Soon</div>
+                        <div class="compact-item-time">11:42–13:42</div>
+                        <div class="compact-item-address">53 Howard St</div>
+                    </div>
+                    <img class="compact-item-img" src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=96&h=96&fit=crop" alt="">
+                </div>
+                <div class="compact-transit"><div class="transit-line-segment"></div>Walk 8 min</div>
+                <div class="compact-item">
+                    <div class="compact-item-number">3</div>
+                    <div class="compact-item-content">
+                        <div class="compact-item-name">McNally Jackson</div>
+                        <div class="compact-item-time">13:50–14:35</div>
+                        <div class="compact-item-address">52 Prince St</div>
+                    </div>
+                    <img class="compact-item-img" src="https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=96&h=96&fit=crop" alt="">
+                </div>
+                <div class="compact-transit"><div class="transit-line-segment"></div>4h 55m gap</div>
+                <div class="compact-item">
+                    <div class="compact-item-number">4</div>
+                    <div class="compact-item-content">
+                        <div class="compact-item-name">Carbone</div>
+                        <div class="compact-item-time">19:30–21:30</div>
+                        <div class="compact-item-address">181 Thompson St</div>
+                    </div>
+                    <img class="compact-item-img" src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=96&h=96&fit=crop" alt="">
+                </div>
+            </div>
+        </div>
+        
+        <!-- Map area -->
+        <div class="map-area">
+            <div class="map-bg"></div>
+            <svg class="route-svg" viewBox="0 0 800 600" preserveAspectRatio="none">
+                <path class="route-path" d="M 200 180 Q 280 200 320 280 Q 340 320 380 340 Q 450 380 500 450"/>
+            </svg>
+            <div class="map-pin" style="left: 25%; top: 30%;"><div class="pin-body"><span class="pin-number">1</span></div><div class="pin-label">Florea</div></div>
+            <div class="map-pin active" style="left: 40%; top: 47%;"><div class="pin-body"><span class="pin-number">2</span></div><div class="pin-label">Coming Soon</div></div>
+            <div class="map-pin" style="left: 48%; top: 57%;"><div class="pin-body"><span class="pin-number">3</span></div><div class="pin-label">McNally Jackson</div></div>
+            <div class="map-pin" style="left: 63%; top: 75%;"><div class="pin-body"><span class="pin-number">4</span></div><div class="pin-label">Carbone</div></div>
+            <div class="current-card"><div class="current-dot"></div><div class="current-text">Viewing: <strong>Coming Soon</strong></div></div>
+            <div class="map-controls">
+                <button class="map-control-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+                <button class="map-control-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+                <button class="map-control-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4m10-10h-4M6 12H2"/></svg></button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function setMode(mode) {
+            const shell = document.getElementById('shell');
+            const btns = document.querySelectorAll('.mode-btn');
+            
+            btns.forEach(btn => btn.classList.remove('active'));
+            
+            if (mode === 'map') {
+                shell.classList.add('map-mode');
+                btns[2].classList.add('active');
+            } else {
+                shell.classList.remove('map-mode');
+                btns[mode === 'compact' ? 1 : 0].classList.add('active');
+            }
+        }
+    </script>
+</body>
+</html>
