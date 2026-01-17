@@ -1,46 +1,94 @@
 'use client';
 
-import { formatDuration } from '@/lib/time-utils';
+import { useState, useEffect } from 'react';
 
 interface DurationInputProps {
-  value: number;
+  value: number; // minutes
   onChange: (minutes: number) => void;
 }
 
-const DURATION_OPTIONS = [
-  { value: 30, label: '30m' },
-  { value: 45, label: '45m' },
-  { value: 60, label: '1h' },
-  { value: 90, label: '1.5h' },
-  { value: 120, label: '2h' },
-  { value: 150, label: '2.5h' },
-  { value: 180, label: '3h' },
-  { value: 240, label: '4h' },
-];
+function formatDurationDisplay(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
+function parseDuration(input: string): number | null {
+  const trimmed = input.trim().toLowerCase();
+
+  // Try "1h 30m" or "1h30m" format
+  const hm = trimmed.match(/^(\d+)\s*h\s*(\d+)\s*m?$/);
+  if (hm) {
+    return parseInt(hm[1], 10) * 60 + parseInt(hm[2], 10);
+  }
+
+  // Try "1.5h" format
+  const decimalH = trimmed.match(/^(\d+\.?\d*)\s*h$/);
+  if (decimalH) {
+    return Math.round(parseFloat(decimalH[1]) * 60);
+  }
+
+  // Try "90m" format
+  const mOnly = trimmed.match(/^(\d+)\s*m$/);
+  if (mOnly) {
+    return parseInt(mOnly[1], 10);
+  }
+
+  // Try just "1h" format
+  const hOnly = trimmed.match(/^(\d+)\s*h$/);
+  if (hOnly) {
+    return parseInt(hOnly[1], 10) * 60;
+  }
+
+  // Try plain number (assume minutes)
+  const plain = trimmed.match(/^(\d+)$/);
+  if (plain) {
+    return parseInt(plain[1], 10);
+  }
+
+  return null;
+}
 
 export function DurationInput({ value, onChange }: DurationInputProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [inputValue, setInputValue] = useState(formatDurationDisplay(value));
+
+  useEffect(() => {
+    if (!isEditing) {
+      setInputValue(formatDurationDisplay(value));
+    }
+  }, [value, isEditing]);
+
+  const handleBlur = () => {
+    const parsed = parseDuration(inputValue);
+    if (parsed !== null && parsed > 0) {
+      onChange(parsed);
+    } else {
+      setInputValue(formatDurationDisplay(value));
+    }
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleBlur();
+    } else if (e.key === 'Escape') {
+      setInputValue(formatDurationDisplay(value));
+      setIsEditing(false);
+    }
+  };
+
   return (
-    <select
-      value={value}
-      onChange={(e) => onChange(parseInt(e.target.value, 10))}
-      className="font-mono text-[10px] py-[2px] px-[4px] border border-[var(--border)] bg-[var(--surface)] cursor-pointer appearance-none"
-      style={{
-        backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23a8a29e' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-        backgroundPosition: 'right 2px center',
-        backgroundRepeat: 'no-repeat',
-        backgroundSize: '14px',
-        paddingRight: '18px'
-      }}
-    >
-      {DURATION_OPTIONS.map((opt) => (
-        <option key={opt.value} value={opt.value}>
-          {opt.label}
-        </option>
-      ))}
-      {/* Show current value if not in options */}
-      {!DURATION_OPTIONS.some(o => o.value === value) && (
-        <option value={value}>{formatDuration(value)}</option>
-      )}
-    </select>
+    <input
+      type="text"
+      value={inputValue}
+      onChange={(e) => setInputValue(e.target.value)}
+      onFocus={() => setIsEditing(true)}
+      onBlur={handleBlur}
+      onKeyDown={handleKeyDown}
+      className="font-mono text-[10px] py-[2px] px-[4px] border border-[var(--border)] bg-[var(--surface)] w-[50px] text-[var(--text-muted)]"
+    />
   );
 }

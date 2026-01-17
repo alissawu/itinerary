@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MenuDotsIcon, EditIcon, DuplicateIcon, MoveIcon, TrashIcon } from '@/components/ui/Icons';
 
 interface PlaceContextMenuProps {
@@ -18,40 +18,56 @@ export function PlaceContextMenu({
   onMoveToDay,
   onDelete,
 }: PlaceContextMenuProps) {
-  const [showMenu, setShowMenu] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isOpen]);
+
+  const handleAction = (action: () => void) => {
+    action();
+    setIsOpen(false);
+  };
 
   return (
-    <div
-      className="absolute top-2 right-2 z-10"
-      onMouseEnter={() => setShowMenu(true)}
-      onMouseLeave={() => setShowMenu(false)}
-    >
+    <div className="absolute top-2 right-2 z-10" ref={menuRef}>
       <button
+        onClick={() => setIsOpen(!isOpen)}
         className={`w-7 h-7 bg-[var(--surface)] border border-[var(--border)] rounded-md flex items-center justify-center transition-all ${
-          isVisible || showMenu ? 'opacity-100 scale-100' : 'opacity-0 scale-90'
+          isVisible || isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-90'
         } hover:bg-[var(--active-bg)] hover:border-[var(--border-dark)]`}
       >
         <MenuDotsIcon className="w-3.5 h-3.5 text-[var(--text-muted)]" />
       </button>
 
-      {showMenu && (
+      {isOpen && (
         <div className="absolute top-full right-0 mt-1 bg-[var(--surface)] border border-[var(--border-dark)] rounded-lg shadow-lg min-w-[160px] py-1 z-50">
           <button
-            onClick={onEdit}
+            onClick={() => handleAction(onEdit)}
             className="flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[12px] text-[var(--text)] hover:bg-[var(--active-bg)] rounded-t-lg"
           >
             <EditIcon className="w-3.5 h-3.5 text-[var(--text-muted)]" />
             Edit
           </button>
           <button
-            onClick={onDuplicate}
+            onClick={() => handleAction(onDuplicate)}
             className="flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[12px] text-[var(--text)] hover:bg-[var(--active-bg)]"
           >
             <DuplicateIcon className="w-3.5 h-3.5 text-[var(--text-muted)]" />
             Duplicate
           </button>
           <button
-            onClick={onMoveToDay}
+            onClick={() => handleAction(onMoveToDay)}
             className="flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[12px] text-[var(--text)] hover:bg-[var(--active-bg)]"
           >
             <MoveIcon className="w-3.5 h-3.5 text-[var(--text-muted)]" />
@@ -59,7 +75,7 @@ export function PlaceContextMenu({
           </button>
           <div className="h-px bg-[var(--border)] my-1" />
           <button
-            onClick={onDelete}
+            onClick={() => handleAction(onDelete)}
             className="flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[12px] text-[var(--danger)] hover:bg-[var(--danger-soft)] rounded-b-lg"
           >
             <TrashIcon className="w-3.5 h-3.5" />

@@ -1,16 +1,80 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { Place } from '@/types';
-import { formatTimeRange, formatTime12h } from '@/lib/time-utils';
-import { DurationInput } from '@/components/ui/DurationInput';
+import { formatTime12h, addMinutes } from '@/lib/time-utils';
 import { PlaceContextMenu } from './PlaceContextMenu';
 import { AddPlaceButton } from './AddPlaceButton';
 import { PhotoCarousel } from './PhotoCarousel';
 import { EmbedCarousel } from './EmbedCarousel';
 import { DragIcon, AnchorIcon, ClockIcon } from '@/components/ui/Icons';
+
+// Generate time slots in 15-minute increments
+function generateTimeSlots(): string[] {
+  const slots: string[] = [];
+  for (let h = 0; h < 24; h++) {
+    for (let m = 0; m < 60; m += 15) {
+      slots.push(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
+    }
+  }
+  return slots;
+}
+
+const TIME_SLOTS = generateTimeSlots();
+
+function formatTimeDisplay(time: string): string {
+  const [h, m] = time.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const hour12 = h % 12 || 12;
+  return `${hour12}:${m.toString().padStart(2, '0')} ${period}`;
+}
+
+function TimeDropdown({
+  slots,
+  currentValue,
+  onSelect
+}: {
+  slots: string[];
+  currentValue: string;
+  onSelect: (time: string) => void;
+}) {
+  const listRef = useRef<HTMLDivElement>(null);
+  const selectedRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Scroll to current value when dropdown opens
+    if (selectedRef.current && listRef.current) {
+      const container = listRef.current;
+      const selected = selectedRef.current;
+      container.scrollTop = selected.offsetTop - container.clientHeight / 2 + selected.clientHeight / 2;
+    }
+  }, []);
+
+  return (
+    <div
+      ref={listRef}
+      className="absolute top-full left-0 mt-1 bg-[var(--surface)] border border-[var(--border)] shadow-lg z-50 max-h-[200px] overflow-y-auto w-[85px] rounded"
+    >
+      {slots.map((slot) => {
+        const isSelected = slot === currentValue;
+        return (
+          <div
+            key={slot}
+            ref={isSelected ? selectedRef : null}
+            onClick={() => onSelect(slot)}
+            className={`px-2 py-1.5 text-[11px] font-mono cursor-pointer hover:bg-[var(--active-bg)] ${
+              isSelected ? 'bg-[var(--accent)] text-white' : ''
+            }`}
+          >
+            {formatTimeDisplay(slot)}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 interface PlaceCardProps {
   place: Place;
@@ -19,6 +83,23 @@ interface PlaceCardProps {
   onDelete: () => void;
   onDuplicate: () => void;
   onAddAfter: () => void;
+}
+
+// Calculate duration in minutes between two HH:MM times
+function calculateDuration(start: string, end: string): number {
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  const startMins = sh * 60 + sm;
+  const endMins = eh * 60 + em;
+  return endMins >= startMins ? endMins - startMins : (24 * 60 - startMins) + endMins;
+}
+
+function formatDurationDisplay(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
 }
 
 export function PlaceCard({
@@ -30,6 +111,21 @@ export function PlaceCard({
   onAddAfter,
 }: PlaceCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [editingField, setEditingField] = useState<'start' | 'end' | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setEditingField(null);
+      }
+    };
+    if (editingField) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [editingField]);
 
   const {
     attributes,
@@ -47,9 +143,21 @@ export function PlaceCard({
   };
 
   const effectiveStartTime = place.anchorTime || startTime;
-  const timeDisplay = formatTimeRange(effectiveStartTime, place.duration);
-  const [startTimeStr, endTimeStr] = timeDisplay.split('–');
+  const endTime = addMinutes(effectiveStartTime, place.duration);
   const isAnchored = !!place.anchorTime;
+
+  const handleTimeSelect = (newTime: string) => {
+    if (editingField === 'start') {
+      const newDuration = calculateDuration(newTime, endTime);
+      onUpdate({ anchorTime: newTime, duration: newDuration > 0 ? newDuration : place.duration });
+    } else if (editingField === 'end') {
+      const newDuration = calculateDuration(effectiveStartTime, newTime);
+      if (newDuration > 0) {
+        onUpdate({ duration: newDuration });
+      }
+    }
+    setEditingField(null);
+  };
 
   return (
     <div
@@ -64,8 +172,8 @@ export function PlaceCard({
           isAnchored ? 'border-l-[3px] border-l-[var(--anchor)]' : ''
         }`}
       >
-        {/* Main content row - grid: 28px drag, 95px time, 1fr content */}
-        <div className="grid grid-cols-[28px_95px_1fr]">
+        {/* Main content row - grid: 28px drag, 105px time, 1fr content */}
+        <div className="grid grid-cols-[28px_105px_1fr]">
           {/* Drag handle */}
           <div
             {...attributes}
@@ -76,15 +184,42 @@ export function PlaceCard({
           </div>
 
           {/* Time column */}
-          <div className="py-[14px] px-[12px] bg-[var(--active-bg)] border-r border-[var(--border)]">
-            <div className="font-mono text-[11px] font-medium text-[var(--text)] mb-1">
-              {startTimeStr}–{endTimeStr}
+          <div className="py-[14px] px-[12px] bg-[var(--active-bg)] border-r border-[var(--border)]" ref={dropdownRef}>
+            <div className="font-mono text-[11px] font-medium text-[var(--text)] mb-1 flex items-center">
+              <div className="relative">
+                <span
+                  onClick={() => setEditingField(editingField === 'start' ? null : 'start')}
+                  className="cursor-pointer hover:text-[var(--accent)]"
+                >
+                  {effectiveStartTime}
+                </span>
+                {editingField === 'start' && (
+                  <TimeDropdown
+                    slots={TIME_SLOTS}
+                    currentValue={effectiveStartTime}
+                    onSelect={handleTimeSelect}
+                  />
+                )}
+              </div>
+              <span className="mx-[2px]">–</span>
+              <div className="relative">
+                <span
+                  onClick={() => setEditingField(editingField === 'end' ? null : 'end')}
+                  className="cursor-pointer hover:text-[var(--accent)]"
+                >
+                  {endTime}
+                </span>
+                {editingField === 'end' && (
+                  <TimeDropdown
+                    slots={TIME_SLOTS}
+                    currentValue={endTime}
+                    onSelect={handleTimeSelect}
+                  />
+                )}
+              </div>
             </div>
-            <div className="mb-[6px]">
-              <DurationInput
-                value={place.duration}
-                onChange={(minutes) => onUpdate({ duration: minutes })}
-              />
+            <div className="font-mono text-[10px] text-[var(--text-muted)] mb-[6px]">
+              {formatDurationDisplay(place.duration)}
             </div>
             <button
               onClick={() => {
